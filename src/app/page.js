@@ -19,6 +19,7 @@ export default function Home() {
     time: ''
   });
   const [status, setStatus] = useState({ loading: false, error: null, success: false });
+  const [showModal, setShowModal] = useState(false);
   const [unavailableSlots, setUnavailableSlots] = useState([]);
 
   useEffect(() => {
@@ -81,6 +82,7 @@ export default function Home() {
 
       setStatus({ loading: false, error: null, success: true });
       setFormData({ name: '', email: '', service: '', date: '', time: '' });
+      setShowModal(true);
       
       // Clear success message after 5 seconds
       setTimeout(() => {
@@ -104,6 +106,15 @@ export default function Home() {
       <div className={styles.formCard}>
         {status.error && <div className={`${styles.alert} ${styles.alertError}`}>{status.error}</div>}
         {status.success && <div className={`${styles.alert} ${styles.alertSuccess}`}>Your appointment has been successfully booked!</div>}
+
+        {showModal && (
+          <div className={styles.modalOverlay}>
+            <div className={styles.modalContent}>
+              <p>✅ Your appointment is confirmed! Please check your spam folder if you don't see the confirmation email.</p>
+              <button className={styles.modalClose} onClick={() => setShowModal(false)}>OK</button>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div className={styles.formGroup}>

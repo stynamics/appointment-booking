@@ -27,9 +27,9 @@ export async function PATCH(request, { params }) {
 
     // Send email to client based on the updated status
     if (status === 'Confirmed') {
-      sendClientConfirmation(appointment).catch(console.error);
+      await sendClientConfirmation(appointment).catch(console.error);
     } else if (status === 'Cancelled') {
-      sendClientCancellation(appointment).catch(console.error);
+      await sendClientCancellation(appointment).catch(console.error);
     }
 
     return NextResponse.json({ success: true, data: appointment }, { status: 200 });

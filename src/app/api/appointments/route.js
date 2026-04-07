@@ -44,8 +44,9 @@ export async function POST(request) {
 
     const appointment = await Appointment.create(body);
     
-    // Send email notification without blocking the API response
-    sendAdminNotification(appointment).catch(console.error);
+    // In serverless environments (Vercel), we must await the email 
+    // to ensure the function doesn't terminate before the email is sent.
+    await sendAdminNotification(appointment).catch(console.error);
     
     return NextResponse.json({ success: true, data: appointment }, { status: 201 });
   } catch (error) {

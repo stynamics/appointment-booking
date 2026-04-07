@@ -1,7 +1,14 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import Calendar from 'react-calendar';
+import 'react-calendar/dist/Calendar.css';
 import styles from './page.module.css';
+import { formatTime12Hour } from '@/lib/utils';
+
+const BUSINESS_HOURS = [
+  '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'
+];
 
 export default function Home() {
   const [formData, setFormData] = useState({
@@ -12,13 +19,51 @@ export default function Home() {
     time: ''
   });
   const [status, setStatus] = useState({ loading: false, error: null, success: false });
+  const [unavailableSlots, setUnavailableSlots] = useState([]);
+
+  useEffect(() => {
+    // Clear previously selected time when date changes
+    if (formData.date) {
+      const fetchAvailability = async () => {
+        try {
+          const res = await fetch(`/api/availability?date=${formData.date.toISOString()}`);
+          if (res.ok) {
+            const data = await res.json();
+            setUnavailableSlots(data.data || []);
+          }
+        } catch (error) {
+          console.error("Failed to fetch availability", error);
+        }
+      };
+      
+      fetchAvailability();
+    }
+  }, [formData.date]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const handleDateChange = (date) => {
+    setFormData({ ...formData, date });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Prevent past bookings
+    if (formData.date && formData.time) {
+      const now = new Date();
+      const selectedDateTime = new Date(formData.date);
+      const [hours, minutes] = formData.time.split(':');
+      selectedDateTime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+
+      if (selectedDateTime < now) {
+        setStatus({ loading: false, error: "You cannot book an appointment in the past. Please select a valid future time.", success: false });
+        return;
+      }
+    }
+
     setStatus({ loading: true, error: null, success: false });
 
     try {
@@ -107,31 +152,55 @@ export default function Home() {
             </select>
           </div>
 
-          <div className={styles.row}>
-            <div className={styles.formGroup}>
-              <label className={styles.label} htmlFor="date">Date</label>
-              <input 
-                type="date" 
-                id="date" 
-                name="date" 
-                className={styles.input} 
-                value={formData.date} 
-                onChange={handleChange}
-                required 
+          <div className={styles.formGroup}>
+            <label className={styles.label}>Select Date</label>
+            <div className={styles.calendarWrapper}>
+              <Calendar 
+                onChange={handleDateChange} 
+                value={formData.date || null}
+                minDate={new Date()}
+                maxDate={new Date(new Date().setMonth(new Date().getMonth() + 2))}
+                className={styles.customCalendar}
               />
             </div>
+            {/* Hidden required input to ensure form validation triggers if date isn't picked */}
+            <input type="date" value={formData.date ? formData.date.toISOString().split('T')[0] : ''} style={{display: 'none'}} name="date" required onChange={()=>{}}/>
+          </div>
 
+          <div className={styles.row}>
             <div className={styles.formGroup}>
-              <label className={styles.label} htmlFor="time">Time</label>
-              <input 
-                type="time" 
-                id="time" 
-                name="time" 
-                className={styles.input} 
-                value={formData.time} 
-                onChange={handleChange}
-                required 
-              />
+              <label className={styles.label}>Select Time</label>
+              {formData.date ? (
+                <div className={styles.timeGrid}>
+                  {BUSINESS_HOURS.map(time => {
+                    const isUnavailable = unavailableSlots.includes(time);
+                    
+                    const now = new Date();
+                    const targetDate = new Date(formData.date);
+                    const [hours, minutes] = time.split(':');
+                    targetDate.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+                    const isPast = targetDate < now;
+                    
+                    const disabled = isUnavailable || isPast;
+
+                    return (
+                      <button
+                        key={time}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => setFormData({ ...formData, time })}
+                        className={`${styles.timeSlotBtn} ${formData.time === time ? styles.timeSlotActive : ''}`}
+                      >
+                        {formatTime12Hour(time)}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p style={{color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.5rem'}}>Please select a date first to see available times.</p>
+              )}
+              {/* Hidden required input to ensure form validation triggers if time isn't picked */}
+              <input type="time" value={formData.time} style={{display: 'none'}} name="time" required onChange={()=>{}}/>
             </div>
           </div>
 

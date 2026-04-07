@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import styles from './page.module.css';
+import { formatTime12Hour } from '@/lib/utils';
 
 export default function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -10,6 +11,7 @@ export default function AdminDashboard() {
   
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [filterTab, setFilterTab] = useState('All');
 
   // MVP level passcode protection
   const handleLogin = (e) => {
@@ -35,6 +37,35 @@ export default function AdminDashboard() {
       console.error("Failed to fetch appointments", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateStatus = async (id, newStatus) => {
+    try {
+      const res = await fetch(`/api/appointments/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      if (res.ok) {
+        fetchAppointments();
+      }
+    } catch (err) {
+      console.error("Failed to update status", err);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('Are you sure you want to delete this appointment?')) return;
+    try {
+      const res = await fetch(`/api/appointments/${id}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        fetchAppointments();
+      }
+    } catch (err) {
+      console.error("Failed to delete appointment", err);
     }
   };
 
@@ -65,20 +96,34 @@ export default function AdminDashboard() {
       <header className={styles.header}>
         <h1 className={styles.title}>Appointments</h1>
         <button onClick={() => setIsAuthenticated(false)} className={styles.logoutBtn}>
-          Lock Output
+          Lock Console
         </button>
       </header>
+
+      {isAuthenticated && (
+        <div className={styles.tabsContainer}>
+          {['All', 'Pending', 'Confirmed', 'Cancelled'].map(tab => (
+            <button 
+              key={tab} 
+              onClick={() => setFilterTab(tab)}
+              className={`${styles.tabBtn} ${filterTab === tab ? styles.tabActive : ''}`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+      )}
 
       {loading ? (
         <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Loading appointments...</p>
       ) : (
         <div className={styles.grid}>
-          {appointments.length === 0 ? (
+          {appointments.filter(apt => filterTab === 'All' || apt.status === filterTab).length === 0 ? (
             <div className={styles.emptyState}>
-              <p>No appointments found.</p>
+              <p>No {filterTab !== 'All' ? filterTab.toLowerCase() : ''} appointments found.</p>
             </div>
           ) : (
-            appointments.map((apt) => (
+            appointments.filter(apt => filterTab === 'All' || apt.status === filterTab).map((apt) => (
               <div key={apt._id} className={styles.card}>
                 <div className={styles.cardHeader}>
                   <div>
@@ -101,7 +146,7 @@ export default function AdminDashboard() {
                   </div>
                   <div className={styles.detailRow}>
                     <span className={styles.detailLabel}>Time:</span>
-                    <span>{apt.time}</span>
+                    <span>{formatTime12Hour(apt.time)}</span>
                   </div>
                   <div className={styles.detailRow}>
                     <span className={styles.detailLabel}>Booked:</span>
@@ -109,6 +154,31 @@ export default function AdminDashboard() {
                       {new Date(apt.createdAt).toLocaleString()}
                     </span>
                   </div>
+                </div>
+                
+                <div className={styles.actionButtons}>
+                  {apt.status !== 'Confirmed' && (
+                    <button 
+                      onClick={() => handleUpdateStatus(apt._id, 'Confirmed')} 
+                      className={`${styles.actionBtn} ${styles.confirmBtn}`}
+                    >
+                      Confirm
+                    </button>
+                  )}
+                  {apt.status !== 'Cancelled' && (
+                    <button 
+                      onClick={() => handleUpdateStatus(apt._id, 'Cancelled')} 
+                      className={`${styles.actionBtn} ${styles.cancelBtn}`}
+                    >
+                      Cancel
+                    </button>
+                  )}
+                  <button 
+                    onClick={() => handleDelete(apt._id)} 
+                    className={`${styles.actionBtn} ${styles.deleteBtn}`}
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
             ))

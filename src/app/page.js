@@ -161,6 +161,8 @@ export default function Home() {
                 minDate={new Date()}
                 maxDate={new Date(new Date().setMonth(new Date().getMonth() + 2))}
                 className={styles.customCalendar}
+                next2Label={null}
+                prev2Label={null}
               />
             </div>
             {/* Hidden required input to ensure form validation triggers if date isn't picked */}
